@@ -1,6 +1,9 @@
 # Next JS Boilerplate
 This serves as a next js app starter, and the following is a walkthrough of it's creation.
 
+<details>
+<summary>Setup</summary>
+
 ## Create Project
 ```
 npx create-next-app@latest next-boilerplate
@@ -24,6 +27,12 @@ Remove the image files from the public folder:
 ```bash
 rm public/*.svg
 ```
+
+</details>
+
+
+<details>
+<summary>MUI</summary>
 
 ## Add MUI
 
@@ -218,10 +227,13 @@ rm app/globals.css
 ## 🚀 Checkpoint
 At this point you should have a basic Next JS app skeleton setup with MUI + Next SSR Integration, and the CSS Baseline moved from next globals to MUI.  You also have a light and dark theme, with the capacity to toggle themes.
 
-## Components
-Adding some basic components for navigation.
+</details>
 
-### App Nav
+
+<details>
+<summary>App Navigation</summary>
+
+## App Navigation
 Create a components directory:
 ```bash
 mkdir components
@@ -325,6 +337,12 @@ export default function RootLayout({
 
 ## 🚀 Checkpoint
 There is now a top app navigation with a dropdown menu, containing the ability to toggle light or dark theme.
+
+</details>
+
+
+<details>
+<summary>Dark Mode Screen Flicker</summary>
 
 ## Remove Screen Flicker
 Integrate next-themes to remove dark mode screen flicker on hard refresh.
@@ -435,3 +453,5 @@ export default function RootLayout({
 }
 
 ```
+
+</details>
