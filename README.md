@@ -1504,6 +1504,52 @@ export default function StartPage() {
 ```
 
 
+</details>
+
+
+
+<details>
+<summary>Progressive Web App (PWA)</summary>
+
+## Create Manifest
+Create file:
+```bash
+touch app/manifest.ts
+```
+In `app/manifest.ts`:
+```ts
+import type { MetadataRoute } from 'next'
+ 
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'Next Boilerplate',
+    short_name: 'Next Boilerplate',
+    description: 'A Progressive Web App built with Next.js',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#ffffff',
+    theme_color: '#000000',
+    icons: [
+      {
+        src: '/icon-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        src: '/icon-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+      },
+    ],
+  }
+}
+```
+
+## Copy Public Files
+Copy the icons files in the repo `/public` directory into your projects `/public` directorty.  
+To add your own icons, the next js documentation recommends using [RealFaviconGenerator](https://realfavicongenerator.net/).
+
 
 </details>
+
 
