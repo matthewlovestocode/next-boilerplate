@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { RootProviders } from '@/providers/root-providers';
 import AppNav from '@/components/app-nav';
+import { ThemeProvider as NextThemesProvider } from 'next-themes'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,13 +26,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AppRouterCacheProvider>
-          <RootProviders>
-            <AppNav />
-            {children}
-          </RootProviders>
+          <NextThemesProvider attribute="class" defaultTheme="system">
+            <RootProviders>
+              <AppNav />
+              {children}
+            </RootProviders>
+          </NextThemesProvider>
         </AppRouterCacheProvider>
       </body>
     </html>
