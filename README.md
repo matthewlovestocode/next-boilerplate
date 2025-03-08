@@ -31,6 +31,7 @@ rm public/*.svg
 </details>
 
 
+
 <details>
 <summary>MUI</summary>
 
@@ -224,9 +225,6 @@ export default function RootLayout({
 rm app/globals.css
 ```
 
-## 🚀 Checkpoint
-At this point you should have a basic Next JS app skeleton setup with MUI + Next SSR Integration, and the CSS Baseline moved from next globals to MUI.  You also have a light and dark theme, with the capacity to toggle themes.
-
 </details>
 
 
@@ -335,10 +333,9 @@ export default function RootLayout({
 
 ```
 
-## 🚀 Checkpoint
-There is now a top app navigation with a dropdown menu, containing the ability to toggle light or dark theme.
 
 </details>
+
 
 
 <details>
@@ -449,6 +446,412 @@ export default function RootLayout({
         </AppRouterCacheProvider>
       </body>
     </html>
+  );
+}
+
+```
+
+</details>
+
+
+
+<details>
+<summary>Supabase</summary>
+
+## Setup Supabase
+Create an `account` and a `project` as [supabase](https://supabase.com/).  
+Three pieces of information are needed in order to connect:
+- Supabase URL - The web address to connect to.  Permitted on client.
+- Supabase Anon Key - The client friendly service key that works with row level security (RLS).
+- Supabase Service Role Key - The server only private key that bypasses RLS, used for setting `app_metadata roles`.
+
+## Create User In Supabase
+Create a new user inside of the Supabase GUI, in `Project > Authentication > Add User`.
+
+## Install SSR SDK
+```bash
+npm i @supabase/ssr
+```
+
+## Environment Variables
+Create local environment variable file used by next:
+```bash
+touch .env.local
+```
+In `.env.local`, add the appropriate url and keys from `Project Settings > Data API`:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-url.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-secret-service-role-key
+```
+
+## Create Supabase Directory
+```bash
+mkdir supabase
+```
+
+## Create Browser Client
+```bash
+touch supabase/browser-client.ts
+```
+In `supabase/browser-client.ts`:
+```ts
+import { createBrowserClient } from '@supabase/ssr'
+
+export const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+```
+
+## Create Lib Directory
+```bash
+mkdir lib
+```
+
+## Create Types File
+```bash
+touch lib/types.ts
+```
+In `lib/types.ts`:
+```ts
+import { User } from '@supabase/supabase-js'
+
+export enum AppUserRole {
+  "ADMIN" = "admin",
+  "AUTHENTICATED" = "authenticated"
+}
+
+export type AppUser = User & {
+  app_metadata: {
+    provider: string;
+    role: AppUserRole;
+  };
+}
+
+```
+
+## Create Hooks Directory
+```bash
+mkdir hooks
+```
+
+## Use Auth Hook
+```bash
+touch hooks/use-auth.ts
+```
+In `hooks/use-auth.ts`:
+```ts
+'use client'
+
+import { useEffect, useState } from 'react'
+import { supabase } from '@/supabase/browser-client'
+import { AppUser, AppUserRole } from '@/lib/types'
+
+export function useAuth() {
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const getUser = async () => {
+      setIsLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user as AppUser || null);
+      setIsLoading(false);
+    };
+
+    getUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user as AppUser || null);
+      setIsLoading(false);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const signUp = async (email: string, password: string) => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    setIsLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setIsLoading(false);
+  };
+
+  const isAdmin = user?.app_metadata.role === AppUserRole.ADMIN;
+
+  return { user, login, signUp, logout, isLoading, isAdmin };
+}
+
+```
+
+
+</details>
+
+
+
+<details>
+<summary>Authentication</summary>
+
+## Create Auth Form
+```bash
+touch components/auth-form.tsx
+```
+In `components/auth-form.tsx`:
+```tsx
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/use-auth'
+import {
+  Alert,
+  Box,
+  Button,
+  Paper,
+  TextField,
+  Typography
+} from '@mui/material'
+
+export default function AuthForm() {
+  const { user, login, signUp } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    try {
+      await login(email, password);
+      setError(null);
+      router.push('/');
+    } catch (err) {
+      setError('Login failed. Please check your credentials.');
+    }
+  };
+
+  const handleSignUp = async () => {
+    try {
+      await signUp(email, password);
+      setError(null);
+      router.push('/');
+    } catch (err) {
+      setError('Sign up failed. Try again with a valid email.');
+    }
+  };
+
+  useEffect(() => {
+    if (user) router.push('/');
+  }, [user]);
+
+  if (user) return null;
+
+  return (
+    <>
+      {!user && (
+        <Paper
+          sx={{
+            p: 4,
+            boxShadow: 3,
+            borderRadius: 2,
+            textAlign: "center",
+          }}
+        >
+          <Box sx={{ maxWidth: 400, mx: 'auto', textAlign: 'center' }}>
+            <Typography variant="h5">
+              Sign In
+            </Typography>
+
+            {error && <Alert severity="error">{error}</Alert>}
+
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              sx={{ mt: 2 }}
+            />
+
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              sx={{ mt: 2 }}
+            />
+
+            <Button variant="contained" onClick={handleLogin} sx={{ mt: 2, mr: 1 }}>
+              Login
+            </Button>
+
+            <Button variant="outlined" onClick={handleSignUp} sx={{ mt: 2 }}>
+              Sign Up
+            </Button>
+          </Box>
+        </Paper>
+      )}
+    </>
+  );
+}
+
+```
+
+## Create Sign In Page
+```bash
+mkdir app/sign-in && touch app/sign-in/page.tsx
+```
+In `app/sign-in/page.tsx`:
+```tsx
+import { Box } from '@mui/material'
+import AuthForm from '@/components/auth-form'
+
+export default function SignInPage() {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "calc(100vh - 65px)",
+        width: "100vw"
+      }}
+    >
+      <AuthForm />
+    </Box>
+  );
+}
+
+```
+
+## Add App Nav Links
+In `components/app-nav.tsx`:
+```tsx
+'use client'
+
+import { useAuth } from '@/hooks/use-auth'
+import { useTheme } from '@/providers/theme-provider'
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import HomeIcon from '@mui/icons-material/Home'
+import LightModeIcon from '@mui/icons-material/LightMode'
+import SignInIcon from '@mui/icons-material/Login'
+import SignOutIcon from '@mui/icons-material/Logout'
+import MenuIcon from '@mui/icons-material/Menu'
+import {
+  AppBar,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Typography
+} from '@mui/material'
+import Link from 'next/link'
+import { useState } from 'react'
+
+export default function AppNav() {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { toggleTheme, mode } = useTheme();
+  const { user, isLoading, logout } = useAuth();
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  return (
+    <AppBar position="static" elevation={1}>
+      <Toolbar>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Next Boilerplate
+        </Typography>
+
+        <IconButton color="inherit" onClick={handleMenuOpen}>
+          <MenuIcon />
+        </IconButton>
+
+        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+          <MenuItem
+            onClick={handleMenuClose}
+            component={Link}
+            href="/"
+            sx={{
+              textDecoration: 'none',
+              color: 'inherit'
+            }}
+          >
+            <ListItemIcon>
+              <HomeIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Home" />
+          </MenuItem>
+
+          <MenuItem onClick={toggleTheme}>
+            <ListItemIcon>
+              {mode === 'light' ? <DarkModeIcon fontSize="small" /> : <LightModeIcon fontSize="small" />}
+            </ListItemIcon>
+            <ListItemText primary={mode === 'light' ? 'Dark Mode' : 'Light Mode'} />
+          </MenuItem>
+
+          {!isLoading && user ? (
+            <MenuItem
+              onClick={logout}
+              component={Link}
+              href="/"
+              sx={{
+                textDecoration: 'none',
+                color: 'inherit'
+              }}
+            >
+              <ListItemIcon>
+                <SignOutIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Sign Out" />
+            </MenuItem>
+          ) : (
+            <MenuItem
+              onClick={handleMenuClose}
+              component={Link}
+              href="/sign-in"
+              sx={{
+                textDecoration: 'none',
+                color: 'inherit'
+              }}
+            >
+              <ListItemIcon>
+                <SignInIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Sign In" />
+            </MenuItem>
+          )}
+        </Menu>
+
+      </Toolbar>
+    </AppBar>
   );
 }
 
