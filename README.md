@@ -326,3 +326,112 @@ export default function RootLayout({
 ## 🚀 Checkpoint
 There is now a top app navigation with a dropdown menu, containing the ability to toggle light or dark theme.
 
+## Remove Screen Flicker
+Integrate next-themes to remove dark mode screen flicker on hard refresh.
+
+### Install Next Themes
+```bash
+npm i next-themes
+```
+
+### Update Theme Provider
+In `providers/theme-provider.tsx`:
+```tsx
+'use client'
+
+import { ReactNode, createContext, useContext, useEffect, useState, useMemo } from 'react'
+import { ThemeProvider as MUIThemeProvider } from '@mui/material/styles'
+import { CssBaseline } from '@mui/material'
+import { useTheme as useNextTheme } from 'next-themes'
+import { lightTheme, darkTheme } from '@/app/theme'
+
+type ThemeContextType = {
+  toggleTheme: () => void
+  mode: 'light' | 'dark'
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+
+export function useTheme() {
+  const context = useContext(ThemeContext)
+  if (!context) throw new Error('useTheme must be used within ThemeProvider')
+  return context
+}
+
+export default function ThemeProvider({ children }: { children: ReactNode }) {
+  const { resolvedTheme, setTheme } = useNextTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const mode = resolvedTheme === 'dark' ? 'dark' : 'light'
+
+  const muiTheme = useMemo(() => (mode === 'light' ? lightTheme : darkTheme), [mode])
+
+  if (!mounted) return <></>
+
+  const toggleTheme = () => {
+    setTheme(mode === 'light' ? 'dark' : 'light')
+  }
+
+  return (
+    <ThemeContext.Provider value={{ toggleTheme, mode }}>
+      <MUIThemeProvider theme={muiTheme}>
+        <CssBaseline />
+        {children}
+      </MUIThemeProvider>
+    </ThemeContext.Provider>
+  )
+}
+
+```
+
+### Update Root Layout
+In `app/layout.tsx`:
+```tsx
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import { RootProviders } from '@/providers/root-providers';
+import AppNav from '@/components/app-nav';
+import { ThemeProvider as NextThemesProvider } from 'next-themes'
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Next Boilerplate",
+  description: "A starting point for application development with Next.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <AppRouterCacheProvider>
+          <NextThemesProvider attribute="class" defaultTheme="system">
+            <RootProviders>
+              <AppNav />
+              {children}
+            </RootProviders>
+          </NextThemesProvider>
+        </AppRouterCacheProvider>
+      </body>
+    </html>
+  );
+}
+
+```
