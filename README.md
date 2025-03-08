@@ -215,7 +215,7 @@ export default function RootLayout({
 rm app/globals.css
 ```
 
-## Checkpoint
+## 🚀 Checkpoint
 At this point you should have a basic Next JS app skeleton setup with MUI + Next SSR Integration, and the CSS Baseline moved from next globals to MUI.  You also have a light and dark theme, with the capacity to toggle themes.
 
 ## Components
@@ -323,6 +323,6 @@ export default function RootLayout({
 
 ```
 
-## Checkpoint
+## 🚀 Checkpoint
 There is now a top app navigation with a dropdown menu, containing the ability to toggle light or dark theme.
 
