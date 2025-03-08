@@ -23,7 +23,7 @@ export default function AuthForm() {
     try {
       await login(email, password);
       setError(null);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError('Login failed. Please check your credentials.');
     }
@@ -33,14 +33,14 @@ export default function AuthForm() {
     try {
       await signUp(email, password);
       setError(null);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError('Sign up failed. Try again with a valid email.');
     }
   };
 
   useEffect(() => {
-    if (user) router.push('/');
+    if (user) router.push('/dashboard');
   }, [user]);
 
   if (user) return null;

@@ -857,4 +857,168 @@ export default function AppNav() {
 
 ```
 
+
 </details>
+
+
+
+<details>
+<summary>Middleware</summary>
+
+## Create Middleware
+```bash
+touch middleware.ts
+```
+In `middleware.ts`:
+```ts
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const url = new URL('/sign-in', request.url);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/dashboard/:path*', '/profile/:path*', '/admin/:path*']
+};
+
+```
+
+## Add Dashboard Page
+```bash
+mkdir app/dashboard && touch app/dashboard/page.tsx
+```
+In `app/dashboard/page.tsx`:
+```tsx
+export default function DashboardPage() {
+  return (
+    <div>Dashboard Page</div>
+  );
+}
+```
+
+## Update Auth Form
+In `components/auth-form.tsx`:
+```tsx
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/use-auth'
+import {
+  Alert,
+  Box,
+  Button,
+  Paper,
+  TextField,
+  Typography
+} from '@mui/material'
+
+export default function AuthForm() {
+  const { user, login, signUp } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    try {
+      await login(email, password);
+      setError(null);
+      router.push('/dashboard');
+    } catch (err) {
+      setError('Login failed. Please check your credentials.');
+    }
+  };
+
+  const handleSignUp = async () => {
+    try {
+      await signUp(email, password);
+      setError(null);
+      router.push('/dashboard');
+    } catch (err) {
+      setError('Sign up failed. Try again with a valid email.');
+    }
+  };
+
+  useEffect(() => {
+    if (user) router.push('/dashboard');
+  }, [user]);
+
+  if (user) return null;
+
+  return (
+    <>
+      {!user && (
+        <Paper
+          sx={{
+            p: 4,
+            boxShadow: 3,
+            borderRadius: 2,
+            textAlign: "center",
+          }}
+        >
+          <Box sx={{ maxWidth: 400, mx: 'auto', textAlign: 'center' }}>
+            <Typography variant="h5">
+              Sign In
+            </Typography>
+
+            {error && <Alert severity="error">{error}</Alert>}
+
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              sx={{ mt: 2 }}
+            />
+
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              sx={{ mt: 2 }}
+            />
+
+            <Button variant="contained" onClick={handleLogin} sx={{ mt: 2, mr: 1 }}>
+              Login
+            </Button>
+
+            <Button variant="outlined" onClick={handleSignUp} sx={{ mt: 2 }}>
+              Sign Up
+            </Button>
+          </Box>
+        </Paper>
+      )}
+    </>
+  );
+}
+
+```
+
+
+</details>
+
+
