@@ -20,12 +20,7 @@ export async function createSupabaseServerAdminClient(token: string) {
             cookieStore.set(name, value, options)
           )
         },
-      },
-      global: {
-        headers: {
-          Authorization: `Bearer ${token || ''}`,
-        },
-      },
+      }
     }
   )
 }

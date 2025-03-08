@@ -5,8 +5,11 @@ import { AppUser, AppUserRole } from '@/lib/types';
 /**
  * Get a count of how many users have the admin role.
  */
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest, params: { role: AppUserRole } ) {
   try {
+    // Parse request parameters
+    const { role } = await params;
+
     // Parse request authorization header
     const authHeader = req.headers.get('Authorization');
     
@@ -36,14 +39,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
     }
 
-    // Determine admin user count
-    const adminCount = data.users.filter((user) => {
+    // Determine count of users with role 
+    const count = data.users.filter((user) => {
       const appUser = user as AppUser;
-      return appUser.app_metadata.role === AppUserRole.ADMIN;
+      return appUser.app_metadata.role === role;
     }).length;
 
     // Success
-    return NextResponse.json({ count: adminCount });
+    return NextResponse.json({ count });
 
   } catch (error) {
     console.error("Request error:", error);

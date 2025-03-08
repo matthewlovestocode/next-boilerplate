@@ -1071,11 +1071,11 @@ In `supabase/admin-client.ts`:
 <details>
 <summary>Admin User Role Promotion</summary>
 
-## API Routes Needed
+## API Routes Required
 In order to setup admin roles, promotion, and onboarding the first admin, several routes are required:
 - `GET` `/api/users` - List all users - Requires Supabase Service Role Key
-- `POST` `/api/users/promote` - Promote a user to admin.  When onboarding a new app deployment, the role requirement of admin to create another admin must be waived for the first admin created.
-- `GET` `/api/admin/count` - Return a count of how many admins exists, for the purpose of detecting a new app deployment and presenting the correct UX.
+- `POST` `/api/users/promote` - Promote a user to a new role.  When onboarding a new app deployment, the role requirement of admin to create another admin must be waived for the first admin created.
+- `GET` `/api/roles/[role]/count` - Return a count of how many users with a provided role exist.
 
 ### Create List Users Route
 ```bash
@@ -1095,25 +1095,31 @@ In `app/api/users/promote/route.ts`:
 
 ```
 
-### Create Demote User Route
-```bash
-mkdir -p app/api/users/demote && touch app/api/users/demote/route.ts
-```
-In `app/api/users/demote/route.ts`:
-```ts
-
-```
-
 ### Create Admin Count Route
 ```bash
-mkdir -p app/api/admin/count && touch app/api/admin/count/route.ts
+mkdir -p app/api/roles/\[role\]/count && touch app/api/roles/\[role\]/count/route.ts
 ```
-In `app/api/users/promote/route.ts`:
+In `app/api/roles/[role]/count/route.ts`:
 ```ts
 
 ```
 
-## Create Promote User Button Component 
+## Create First Run Component
+Create the file:
+```bash
+touch components/first-run.tsx
+```
+
+## Create Start Page
+Create the file:
+```bash
+mkdir -p app/start && touch app/start/page.tsx
+```
+In `app/start/page.tsx`:
+```tsx
+
+```
+
 
 
 </details>

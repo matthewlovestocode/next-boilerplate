@@ -14,6 +14,15 @@ export const lightTheme = createTheme({
       primary: "#000000",
     },
   },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
+  }
 });
 
 export const darkTheme = createTheme({
@@ -32,6 +41,13 @@ export const darkTheme = createTheme({
     },
   },
   components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
     MuiPaper: {
       styleOverrides: {
         root: {
