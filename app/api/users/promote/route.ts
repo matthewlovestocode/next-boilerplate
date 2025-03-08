@@ -10,11 +10,23 @@ import { AppUser, AppUserRole } from '@/lib/types';
 export async function POST(req: NextRequest) {
   try {
     // Parse request body
-    const { userId } = await req.json();
+    const { userId, role } = await req.json();
 
     // Return error if request body does not contain user id for user to promote
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
+
+    // Return error if request body does not contain new role
+    if (!role) {
+      return NextResponse.json({ error: "role is required" }, { status: 400 });
+    }
+
+    // Return error if role is not a correct type
+    if (![AppUserRole.ADMIN, AppUserRole.AUTHENTICATED].includes(role)) {
+      if (!role) {
+        return NextResponse.json({ error: "role is invalid" }, { status: 400 });
+      }
     }
 
     // Parse request authorization header
@@ -64,17 +76,17 @@ export async function POST(req: NextRequest) {
 
     // Promote user according to user id in request body
     const { data: promotedUser, error: promotionError } = await supabase.auth.admin.updateUserById(userId, {
-      app_metadata: { role: "admin" },
+      app_metadata: { role },
     });
 
     // Return error if supabase fails to update user
     if (promotionError) {
-      console.error("Error promoting user to admin:", promotionError);
+      console.error(`Error promoting user to ${role}:`, promotionError);
       return NextResponse.json({ error: promotionError.message }, { status: 500 });
     }
 
     // Success
-    return NextResponse.json({ message: "User promoted to admin", user: promotedUser });
+    return NextResponse.json({ message: `User promoted to ${role}`, user: promotedUser });
     
   } catch (error) {
     console.error("Request error:", error);

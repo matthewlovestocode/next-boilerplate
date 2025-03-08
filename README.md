@@ -1095,6 +1095,15 @@ In `app/api/users/promote/route.ts`:
 
 ```
 
+### Create Demote User Route
+```bash
+mkdir -p app/api/users/demote && touch app/api/users/demote/route.ts
+```
+In `app/api/users/demote/route.ts`:
+```ts
+
+```
+
 ### Create Admin Count Route
 ```bash
 mkdir -p app/api/admin/count && touch app/api/admin/count/route.ts
