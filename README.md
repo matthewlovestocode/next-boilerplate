@@ -1050,6 +1050,36 @@ touch supabase/server-client.ts
 ```
 In `supabase/server-client.ts`:
 ```ts
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+/**
+ * Create supabase client for next js server.
+ */
+export async function createSupabaseServerClient(token: string) {
+  const cookieStore = await cookies();
+  return  createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+        },
+      },
+    }
+  )
+}
 
 ```
 
@@ -1060,6 +1090,32 @@ touch supabase/admin-client.ts
 ```
 In `supabase/admin-client.ts`:
 ```ts
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+/**
+ * Create supabase client for next js server that bypasses supabase RLS for admin override.
+ * Do not expose to next js client code.
+ */
+export async function createSupabaseServerAdminClient(token: string) {
+  const cookieStore = await cookies();
+  return  createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      }
+    }
+  )
+}
 
 ```
 
@@ -1083,6 +1139,50 @@ mkdir -p app/api/users && touch app/api/users/route.ts
 ```
 In `app/api/users/route.ts`:
 ```ts
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServerAdminClient } from '@/supabase/admin-client'
+
+/**
+ * Get all users.  Requires admin role.
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get('Authorization');
+    
+    // Return error if header is not formatted correctly
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 });
+    }
+
+    // Pass token as auth header in supabase client 
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = await createSupabaseServerAdminClient(token);
+
+    // Check if a user exists with the token
+    const { data: { user }, error: getUserError } = await supabase.auth.getUser(token);
+
+    // Return error if token is invalid, expired, or if user does not exist
+    if (getUserError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+    }
+
+    // Fetch all users with admin privilege
+    const { data, error } = await supabase.auth.admin.listUsers();
+
+    // Return error if supabase query fails 
+    if (error) {
+      console.error("Error fetching users:", error);
+      return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+    }
+
+    // Success
+    return NextResponse.json(data.users);
+    
+  } catch (error) {
+    console.error("Request error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 ```
 
@@ -1092,22 +1192,287 @@ mkdir -p app/api/users/promote && touch app/api/users/promote/route.ts
 ```
 In `app/api/users/promote/route.ts`:
 ```ts
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServerAdminClient } from '@/supabase/admin-client'
+import { AppUser, AppUserRole } from '@/lib/types';
+
+/**
+ * Promote a user to a new role.
+ * Requires a request authorization token from a user with an admin role.
+ * The admin role requirement is bypassed if no users with the admin role exist.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    // Parse request body
+    const { userId, role } = await req.json();
+
+    // Return error if request body does not contain user id for user to promote
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
+
+    // Return error if request body does not contain new role
+    if (!role) {
+      return NextResponse.json({ error: "role is required" }, { status: 400 });
+    }
+
+    // Return error if role is not a correct type
+    if (![AppUserRole.ADMIN, AppUserRole.AUTHENTICATED].includes(role)) {
+      if (!role) {
+        return NextResponse.json({ error: "role is invalid" }, { status: 400 });
+      }
+    }
+
+    // Parse request authorization header
+    const authHeader = req.headers.get('Authorization');
+    
+    // Return error if header is not formatted correctly
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 });
+    }
+
+    // Pass token as auth header in supabase client 
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = await createSupabaseServerAdminClient(token);
+
+    // Check if a user exists with the token
+    const { data: { user }, error: getUserError } = await supabase.auth.getUser(token);
+
+    // Return error if token is invalid, expired, or if user does not exist
+    if (getUserError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+    }
+
+    // Fetch all users with admin privilege
+    const { data, error } = await supabase.auth.admin.listUsers();
+
+    // Return error if supabase query fails 
+    if (error) {
+      console.error("Error fetching users:", error);
+      return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+    }
+
+    // Determine admin user count
+    const adminCount = data.users.filter((user) => {
+      const appUser = user as AppUser;
+      return appUser.app_metadata.role === AppUserRole.ADMIN;
+    }).length;
+
+    
+    // Determine promotion entitlement and requirements
+    const promotionRequiresAdmin = adminCount > 0;
+    const requesterIsAdmin = (user as AppUser).app_metadata.role === AppUserRole.ADMIN;
+
+    // Return error if admin role is required and requesting user is not admin
+    if (promotionRequiresAdmin && !requesterIsAdmin) {
+      return NextResponse.json({ error: "You do not have permission to perform this action" }, { status: 403 });
+    }
+
+    // Promote user according to user id in request body
+    const { data: promotedUser, error: promotionError } = await supabase.auth.admin.updateUserById(userId, {
+      app_metadata: { role },
+    });
+
+    // Return error if supabase fails to update user
+    if (promotionError) {
+      console.error(`Error promoting user to ${role}:`, promotionError);
+      return NextResponse.json({ error: promotionError.message }, { status: 500 });
+    }
+
+    // Success
+    return NextResponse.json({ message: `User promoted to ${role}`, user: promotedUser });
+    
+  } catch (error) {
+    console.error("Request error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 ```
 
-### Create Admin Count Route
+### Create Role Count Route
 ```bash
 mkdir -p app/api/roles/\[role\]/count && touch app/api/roles/\[role\]/count/route.ts
 ```
 In `app/api/roles/[role]/count/route.ts`:
 ```ts
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServerAdminClient } from '@/supabase/admin-client'
+import { AppUser, AppUserRole } from '@/lib/types';
 
+/**
+ * Get a count of how many users have the admin role.
+ */
+export async function GET(req: NextRequest, params: { role: AppUserRole } ) {
+  try {
+    // Parse request parameters
+    const { role } = await params;
+
+    // Parse request authorization header
+    const authHeader = req.headers.get('Authorization');
+    
+    // Return error if header is not formatted correctly
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 });
+    }
+
+    // Pass token as auth header in supabase client 
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = await createSupabaseServerAdminClient(token);
+
+    // Check if a user exists with the token
+    const { data: { user }, error: getUserError } = await supabase.auth.getUser(token);
+
+    // Return error if token is invalid, expired, or if user does not exist
+    if (getUserError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+    }
+
+    // Fetch all users with admin privilege
+    const { data, error } = await supabase.auth.admin.listUsers();
+
+    // Return error if supabase query fails 
+    if (error) {
+      console.error("Error fetching users:", error);
+      return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+    }
+
+    // Determine count of users with role 
+    const count = data.users.filter((user) => {
+      const appUser = user as AppUser;
+      return appUser.app_metadata.role === role;
+    }).length;
+
+    // Success
+    return NextResponse.json({ count });
+
+  } catch (error) {
+    console.error("Request error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 ```
 
 ## Create First Run Component
 Create the file:
 ```bash
 touch components/first-run.tsx
+```
+In `components/first-run.tsx`:
+```tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/use-auth'
+import {
+  Box,
+  Button,
+  Paper,
+  Stack,
+  Typography
+} from '@mui/material'
+import { supabase } from '@/supabase/browser-client'
+
+export default function FirstRun() {
+  const [adminCount, setAdminCount] = useState<number | null>(null);
+  const { user, isLoading: userIsLoading } = useAuth();
+
+  const handleSelfPromote = async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (token) {
+      const res = await fetch('/api/users/promote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          role: 'admin'
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('promote res:', data);
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!user || userIsLoading) return;
+
+    const fetchAdminCount = async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (token) {
+        const res = await fetch('/api/roles/admin/count', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          const data: { count: number } = await res.json();
+          console.log('admin count:', data.count);
+          setAdminCount(data.count);
+        }
+      }
+    };
+
+    fetchAdminCount();
+  }, [userIsLoading]);
+
+  return (
+    <>
+      <Paper
+        sx={{
+          p: 4,
+          boxShadow: 3,
+          borderRadius: 2,
+          textAlign: "center",
+        }}
+      >
+        <Box sx={{ maxWidth: 400, mx: 'auto', textAlign: 'center' }}>
+
+          <Stack spacing={2}>
+            <Typography variant="h5">
+              Hello {user?.email}!
+            </Typography>
+
+            {adminCount && adminCount > 0 && (
+              <Typography variant="body1">
+                It appears an admin has already been set.
+                Please contact your admin.
+              </Typography>
+            )}
+
+            {adminCount && adminCount === 0 && (
+              <>
+                <Typography variant="body1">
+                  No admin user has been set to manage user roles.  Promote yourself to an admin.
+                </Typography>
+
+                <Box>
+                  <Button variant="contained" onClick={handleSelfPromote} sx={{ mt: 2, mr: 1 }}>
+                    Promote Self
+                  </Button>
+                </Box>
+              </>
+            )}
+
+          </Stack>
+        </Box>
+      </Paper>
+    </>
+  );
+}
+
 ```
 
 ## Create Start Page
@@ -1117,6 +1482,24 @@ mkdir -p app/start && touch app/start/page.tsx
 ```
 In `app/start/page.tsx`:
 ```tsx
+import { Box } from '@mui/material'
+import FirstRun from '@/components/first-run';
+
+export default function StartPage() {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "calc(100vh - 65px)",
+        width: "100vw"
+      }}
+    >
+      <FirstRun />
+    </Box>
+  );
+}
 
 ```
 

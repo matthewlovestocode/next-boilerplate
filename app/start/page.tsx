@@ -1,5 +1,4 @@
 import { Box } from '@mui/material'
-import AuthForm from '@/components/auth-form'
 import FirstRun from '@/components/first-run';
 
 export default function StartPage() {
