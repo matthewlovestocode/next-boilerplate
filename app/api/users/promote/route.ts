@@ -3,7 +3,7 @@ import { createSupabaseServerAdminClient } from '@/supabase/admin-client'
 import { AppUser, AppUserRole } from '@/lib/types';
 
 /**
- * Promote a user to admin.
+ * Promote a user to a new role.
  * Requires a request authorization token from a user with an admin role.
  * The admin role requirement is bypassed if no users with the admin role exist.
  */
