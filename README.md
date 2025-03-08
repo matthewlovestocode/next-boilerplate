@@ -1050,36 +1050,7 @@ touch supabase/server-client.ts
 ```
 In `supabase/server-client.ts`:
 ```ts
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
-const cookieStore = await cookies();
-
-/**
- * Supabase server client.
- */
-export const supabase = await createServerClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        } catch {
-          // The `setAll` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
-        }
-      },
-    },
-  }
-);
 ```
 
 ### Supabase Admin Client
@@ -1089,37 +1060,7 @@ touch supabase/admin-client.ts
 ```
 In `supabase/admin-client.ts`:
 ```ts
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
-const cookieStore = await cookies();
-
-/**
- * Supabase client for next js server that bypasses supabase RLS for admin override.
- * Do not expose to next js client code.
- */
-export const supabase = await createServerClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        } catch {
-          // The `setAll` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
-        }
-      },
-    },
-  }
-);
 ```
 
 
@@ -1130,7 +1071,38 @@ export const supabase = await createServerClient(
 <details>
 <summary>Admin User Role Promotion</summary>
 
-## Create Basic User Routes
+## API Routes Needed
+In order to setup admin roles, promotion, and onboarding the first admin, several routes are required:
+- `GET` `/api/users` - List all users - Requires Supabase Service Role Key
+- `POST` `/api/users/promote` - Promote a user to admin.  When onboarding a new app deployment, the role requirement of admin to create another admin must be waived for the first admin created.
+- `GET` `/api/admin/count` - Return a count of how many admins exists, for the purpose of detecting a new app deployment and presenting the correct UX.
+
+### Create List Users Route
+```bash
+mkdir -p app/api/users && touch app/api/users/route.ts
+```
+In `app/api/users/route.ts`:
+```ts
+
+```
+
+### Create Promote User Route
+```bash
+mkdir -p app/api/users/promote && touch app/api/users/promote/route.ts
+```
+In `app/api/users/promote/route.ts`:
+```ts
+
+```
+
+### Create Admin Count Route
+```bash
+mkdir -p app/api/admin/count && touch app/api/admin/count/route.ts
+```
+In `app/api/users/promote/route.ts`:
+```ts
+
+```
 
 ## Create Promote User Button Component 
 
