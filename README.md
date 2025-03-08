@@ -215,6 +215,114 @@ export default function RootLayout({
 rm app/globals.css
 ```
 
-### Checkpoint
+## Checkpoint
 At this point you should have a basic Next JS app skeleton setup with MUI + Next SSR Integration, and the CSS Baseline moved from next globals to MUI.  You also have a light and dark theme, with the capacity to toggle themes.
+
+## Components
+Adding some basic components for navigation.
+
+### App Nav
+Create a components directory:
+```bash
+mkdir components
+```
+Create an app nav component:
+```bash
+touch components/app-nav.tsx
+```
+In `components/app-nav.tsx`:
+```tsx
+'use client'
+
+import { useTheme } from '@/providers/theme-provider'
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import LightModeIcon from '@mui/icons-material/LightMode'
+import MenuIcon from '@mui/icons-material/Menu'
+import { AppBar, IconButton, ListItemIcon, Menu, MenuItem, Toolbar, Typography } from '@mui/material'
+import { useState } from 'react'
+
+export default function AppNav() {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { toggleTheme, mode } = useTheme();
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  return (
+    <AppBar position="static" elevation={1}>
+      <Toolbar>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Next Boilerplate
+        </Typography>
+
+        <IconButton color="inherit" onClick={handleMenuOpen}>
+          <MenuIcon />
+        </IconButton>
+        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+          <MenuItem onClick={toggleTheme}>
+            <ListItemIcon>
+              {mode === 'light' ? <DarkModeIcon fontSize="small" /> : <LightModeIcon fontSize="small" />}
+            </ListItemIcon>
+            {mode === 'light' ? 'Dark Theme' : 'Light Theme'}
+          </MenuItem>
+        </Menu>
+      </Toolbar>
+    </AppBar>
+  );
+}
+
+```
+
+### Update Root Layout
+In `app/layout.tsx`:
+```tsx
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import { RootProviders } from '@/providers/root-providers';
+import AppNav from '@/components/app-nav';
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Next Boilerplate",
+  description: "A starting point for application development with Next.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <AppRouterCacheProvider>
+          <RootProviders>
+            <AppNav />
+            {children}
+          </RootProviders>
+        </AppRouterCacheProvider>
+      </body>
+    </html>
+  );
+}
+
+```
+
+## Checkpoint
+There is now a top app navigation with a dropdown menu, containing the ability to toggle light or dark theme.
 
