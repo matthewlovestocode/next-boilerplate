@@ -1,5 +1,13 @@
 # Next JS Boilerplate
-This serves as a next js app starter, and the following is a walkthrough of it's creation.
+This serves as a next js app starter.
+Features:
+- Next JS v15 with App Router
+- Material UI
+- Light/Dark Mode
+- Admin/Roles API
+- PWA
+
+# Walkthrough
 
 <details>
 <summary>Setup</summary>
